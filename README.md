@@ -1,1 +1,1 @@
-# testing
+# Stocktrader
