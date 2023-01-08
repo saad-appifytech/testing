@@ -126,7 +126,7 @@ def train_model(ticker=0, df=0):
 
     agent = DRLAgent(env=env_train)
     model = agent.get_model("ddpg")
-    trained_model = agent.train_model(model=model, tb_log_name='ddpg', total_timesteps=500)
+    trained_model = agent.train_model(model=model, tb_log_name='ddpg', total_timesteps=500000)
     trained_model.save("trained_models/{}_ticker".format(ticker))
     # print("Loading Model")
     # trained_a2c = model_a2c.load("a2c_first_iteration.zip")
@@ -136,9 +136,9 @@ def train_model(ticker=0, df=0):
     print(f"trade.head(): {trade.head()}")
     df_account_value, df_actions = DRLAgent.DRL_prediction(model=trained_model, environment=e_trade_gym)
 
-    print(f"df_account_value.shape: {df_account_value.shape}")
-    print(f"df_account_value.tail(): {df_account_value.tail()}")
-    print(f"df_actions.head(): {df_actions.head()}")
+#     print(f"df_account_value.shape: {df_account_value.shape}")
+#     print(f"df_account_value.tail(): {df_account_value.tail()}")
+#     print(f"df_actions.head(): {df_actions.head()}")
 
     # df_actions.to_csv("results/{}_act.csv".format(ticker))
     from meta.preprocessor.preprocessors import get_ratios
