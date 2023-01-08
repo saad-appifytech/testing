@@ -34,6 +34,37 @@ from config import (
 
 )
 
+from settrade.openapi import Investor
+
+investor = Investor(
+    app_id="pZ2aU14TBcrHe6QY",
+    app_secret="QbB50GwPfd5yAi2wY9zy8Na4aOKwwZSs3Rqrq/hlFH0=",
+    broker_id="025",
+    app_code="ALGO_EQ",
+    is_auto_queue=False)
+
+equity = investor.Equity(account_no="8301176")
+account_info = equity.get_account_info()
+
+
+def get_thai_stocks(stock, freq='1d'):
+    result = investor.MarketData().get_candlestick(stock, freq)
+    df = pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume'])
+    df['date'] = result['data']['time']
+    df['open'] = result['data']['open']
+    df['high'] = result['data']['high']
+    df['close'] = result['data']['close']
+    df['low'] = result['data']['low']
+    df['volume'] = result['data']['volume']
+    df['date'] = pd.to_datetime(df['date'], unit='s')
+    df['date'] = df.date.dt.date
+    # df.index = df.date
+    #    df['date'] = df.date
+    # df = df.drop(columns='date')
+    df['tic'] = "AAPL"
+
+    return df
+
 
 def train_model(ticker=0, df=0):
     check_and_make_directories([DATA_SAVE_DIR, TRAINED_MODEL_DIR, TENSORBOARD_LOG_DIR, RESULTS_DIR])
@@ -41,20 +72,17 @@ def train_model(ticker=0, df=0):
     print("HEREEEEEEEEEEE ")
 
     if len(df) == 0:
+        df = get_thai_stocks(ticker)
+        # df = YahooDownloader(start_date="2009-01-01", end_date=str(datetime.datetime.now().date()),
+        #                      ticker_list=[ticker], ).fetch_data()
 
-        df = YahooDownloader(start_date="2009-01-01", end_date=str(datetime.datetime.now().date()),
-                             ticker_list=[ticker], ).fetch_data()
-
+    # df['tic'] = 'AAPL'
+    print(df.head())
     df.sort_values(["date", "tic"], ignore_index=True).head()
 
     print("HEREEEEEEEEEEE ")
-    fe = FeatureEngineer(
-        use_technical_indicator=True,
-        tech_indicator_list=config.INDICATORS,
-        use_vix=True,
-        use_turbulence=True,
-        user_defined_feature=False,
-    )
+    fe = FeatureEngineer(use_technical_indicator=True, tech_indicator_list=config.INDICATORS, use_vix=True,
+                         use_turbulence=False, user_defined_feature=False)
 
     processed = fe.preprocess_data(df)
 
@@ -62,14 +90,8 @@ def train_model(ticker=0, df=0):
     list_date = list(pd.date_range(processed["date"].min(), processed["date"].max()).astype(str))
     combination = list(itertools.product(list_date, list_ticker))
 
-    processed_full = pd.DataFrame(combination, columns=["date", "tic"]).merge(processed, on=["date", "tic"], how="left")
-    processed_full = processed_full[processed_full["date"].isin(processed["date"])]
-    processed_full = processed_full.sort_values(["date", "tic"])
-    processed_full = processed_full.fillna(0)
-    processed_full.sort_values(["date", "tic"], ignore_index=True).head(10)
-
-    train = data_split(processed_full, "2009-01-01", str(datetime.datetime.now().date()))
-    trade = data_split(processed_full, "2010-01-01", str(datetime.datetime.now().date()))
+    train = processed
+    trade = processed
     print(f"len(train): {len(train)}")
     print(f"len(trade): {len(trade)}")
     print(f"train.tail(): {train.tail()}")
@@ -97,24 +119,17 @@ def train_model(ticker=0, df=0):
     }
 
     e_train_gym = StockTradingEnv(df=train, **env_kwargs)
+    df_res = pd.DataFrame(columns=['total_profit', 'win_ratio', 'p'])
 
     env_train, _ = e_train_gym.get_sb_env()
     print(f"type(env_train): {type(env_train)}")
 
     agent = DRLAgent(env=env_train)
     model = agent.get_model("ddpg")
-    trained_model = agent.train_model(model=model,  tb_log_name='ddpg', total_timesteps=50000)
+    trained_model = agent.train_model(model=model, tb_log_name='ddpg', total_timesteps=500)
     trained_model.save("trained_models/{}_ticker".format(ticker))
     # print("Loading Model")
     # trained_a2c = model_a2c.load("a2c_first_iteration.zip")
-
-    data_risk_indicator = processed_full[(processed_full.date < "2020-07-01") & (processed_full.date >= "2009-01-01")]
-    insample_risk_indicator = data_risk_indicator.drop_duplicates(subset=["date"])
-    insample_risk_indicator.vix.describe()
-    insample_risk_indicator.vix.quantile(0.996)
-    insample_risk_indicator.turbulence.describe()
-    insample_risk_indicator.turbulence.quantile(0.996)
-
     # trade = data_split(processed_full, '2020-07-01','2021-10-31')
     e_trade_gym = StockTradingEnv(df=trade, turbulence_threshold=70, risk_indicator_col="vix", **env_kwargs)
 
@@ -125,7 +140,10 @@ def train_model(ticker=0, df=0):
     print(f"df_account_value.tail(): {df_account_value.tail()}")
     print(f"df_actions.head(): {df_actions.head()}")
 
-    df_account_value.to_csv("results/{}_account.csv".format(ticker))
     # df_actions.to_csv("results/{}_act.csv".format(ticker))
+    from meta.preprocessor.preprocessors import get_ratios
+    win_ratio, total_profit, p = get_ratios(df)
+    df_res.loc[0] = [total_profit, win_ratio, p]
+    df_res.to_csv("results/{}_account.csv".format(ticker))
 
     return df_account_value, df_actions
