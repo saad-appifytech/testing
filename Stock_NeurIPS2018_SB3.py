@@ -23,10 +23,7 @@ df = []
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = Dash(__name__, external_stylesheets=external_stylesheets)
-auth = dash_auth.BasicAuth(
-    app,
-    VALID_USERNAME_PASSWORD_PAIRS
-)
+auth = dash_auth.BasicAuth(app, VALID_USERNAME_PASSWORD_PAIRS)
 
 UPLOAD_DIRECTORY = "app_uploaded_files"
 
@@ -46,8 +43,7 @@ app.layout = html.Div(
 
         html.H5("Select the Indicators \n"),
 
-        dcc.Checklist(['EMA200', 'EMA89', 'MACD', "Volume"],),
-
+        dcc.Checklist(['EMA200', 'EMA89', 'MACD', "Volume"], ),
 
         html.H5("Input the Name of Stock you want to train model like : AAPL \n"),
         html.Div(dcc.Input(id='input-on-submit', type='text')),
@@ -57,7 +53,6 @@ app.layout = html.Div(
                        options=[dict(label='Spot', value='Spot'),
                                 dict(label='Futures', value='Futures')]),
 
-        html.Div(id='container-button-basic1', children='Training not started'),
         html.H5(" Or Upload the csv file of stock with stock ticker name "),
         dcc.Input(id='stock_name_value', type='text'),
 
@@ -84,16 +79,17 @@ app.layout = html.Div(
         html.H2("\n"),
 
         html.Button('Start Training', id='submit-val'),
-        html.H5(id='container-button-basic', children='Enter a value and press submit'),
+        html.Div(id='container-button-basic', children='Enter a value and press submit'),
+        html.Div(id='container-button-basic1', children='Training not started'),
 
         html.Div(id='output-data-upload'),
         html.H5(" ---------------------------------------------------------------------------- "),
 
-
         html.H3("Training Results"),
         html.H5(id='container-button-basic3', children='No result'),
+        html.H5(id='container-button-basic4', children='No result'),
 
-        dcc.Graph(id='graph'),
+        # dcc.Graph(id='graph'),
 
         html.Div(dcc.Input(id='resultstocks', type='text')),
         html.Button('Show results', id='result_show'),
@@ -135,7 +131,6 @@ def parse_contents(contents, filename):
               State('input-on-submit', 'value'),
               State('stock_name_value', 'value'))
 def update_output(n_clicks, value, ticker):
-
     try:
         if value is not None:
             return 'Training Model on Stock {} Please wait while training completes'.format(value)
@@ -148,7 +143,7 @@ def update_output(n_clicks, value, ticker):
 from glob import glob
 
 
-@app.callback(Output('graph', 'figure'),
+@app.callback(Output('container-button-basic4', 'children'),
               Output('container-button-basic3', 'children'),
               Input('result_show', 'n_clicks'),
               State('resultstocks', 'value'))
@@ -163,17 +158,12 @@ def update_output(n_clicks, value):
                 if files.split("/")[1].upper().find(value) != -1:
                     df_res = pd.read_csv(files)
 
-                    x = df_res['date'].values
-                    y = df_res['account_value'].values
+                    x = df_res.loc[0]['total_profit']
+                    y = df_res.loc[0]['win_ratio']
 
-                    gain = (y[len(y) - 1] - y[0]) / y[0]
-
-                    return {'data': [{'x': x, 'y': y}]} ,  "Gain Score achieved by model is {}%:".format(str(round(gain*100,2 )))
-
-
-
+                    return "Winning ratio: {} ".format(y), "Gain Score achieved by model is:  {}%:".format(x)
     except:
-        return {'data': [{'x': [0, 0, 0], 'y': [0, 0, 0]}]} , "NONE"
+        return "", ""
 
 
 @app.callback(Output('container-button-basic2', 'children'),
@@ -191,8 +181,7 @@ def update_output(list_of_contents, list_of_names):
               State('input-on-submit', 'value'),
               State('stock_name_value', 'value'))
 def start_training(n_clicks, value, ticker):
-
-    if value is not None and len(df)==0:
+    if value is not None and len(df) == 0:
 
         train_model(value, df)
         return 'Training Completed Press Show results to see model performance'
@@ -205,4 +194,4 @@ def start_training(n_clicks, value, ticker):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True, port=8051)
+    app.run_server(debug=True, port=8051, host='0.0.0.0')
