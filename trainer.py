@@ -16,7 +16,7 @@ import dash_auth
 
 # Keep this out of source code repository - save in a file or a database
 VALID_USERNAME_PASSWORD_PAIRS = {
-    'saad': 'saad'
+    'sunny': 'sunny'
 }
 global df
 df = []
@@ -33,9 +33,17 @@ if not os.path.exists(UPLOAD_DIRECTORY):
 # Normally, Dash creates its own Flask server internally. By creating our own,
 # we can create a route for downloading files directly:
 server = Flask(__name__)
+from glob import glob
 
+all_csv_files = [file
+                 for path, subdir, files in os.walk("results/")
+                 for file in glob(os.path.join(path, "*.csv"))]
+
+list_trained = []
+
+for f in all_csv_files:
+    list_trained.append(f.split("_")[0].split("/")[1])
 # app = dash.Dash(server=server)
-
 
 app.layout = html.Div(
     [
@@ -56,7 +64,9 @@ app.layout = html.Div(
         html.H5(" Or Upload the csv file of stock with stock ticker name "),
         dcc.Input(id='stock_name_value', type='text'),
 
+
         html.Div(id='container-button-basic2', children='Training not started'),
+
         dcc.Upload(
             id='upload-data',
             children=html.Div([
@@ -93,6 +103,9 @@ app.layout = html.Div(
 
         html.Div(dcc.Input(id='resultstocks', type='text')),
         html.Button('Show results', id='result_show'),
+        html.H5("****** Trained Stocks Names ******"),
+
+        dcc.Dropdown(list_trained, 'None', id='demo-dropdown'),
 
     ], className='container'
 )
@@ -181,6 +194,7 @@ def update_output(list_of_contents, list_of_names):
               State('input-on-submit', 'value'),
               State('stock_name_value', 'value'))
 def start_training(n_clicks, value, ticker):
+
     if value is not None and len(df) == 0:
 
         train_model(value, df)
