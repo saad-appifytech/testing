@@ -106,6 +106,7 @@ app.layout = html.Div(
         html.H5("****** Trained Stocks Names ******"),
 
         dcc.Dropdown(list_trained, 'None', id='demo-dropdown'),
+        html.Button('Update list', id='submit-val1'),
 
     ], className='container'
 )
@@ -187,6 +188,22 @@ def update_output(list_of_contents, list_of_names):
         parse_contents(list_of_contents, list_of_names)
 
         return "File Uploaded Successfully"
+
+@app.callback(
+    dash.dependencies.Output('demo-dropdown', 'options'),
+    Input('submit-val1', 'n_clicks'))
+def update_date_dropdown(n_clicks):
+
+    all_csv_files = [file
+                     for path, subdir, files in os.walk("results/")
+                     for file in glob(os.path.join(path, "*.csv"))]
+
+    list_trained = []
+
+    for f in all_csv_files:
+        list_trained.append(f.split("_")[0].split("/")[1])
+
+    return [{'label': i, 'value': i} for i in list_trained]
 
 
 @app.callback(Output('container-button-basic1', 'children'),
